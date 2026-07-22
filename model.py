@@ -432,8 +432,11 @@ def sum_negative_log_probs(p_matrix, data):
     
     return float(total_nll)
 
-# Step 56 - average_nll (not yet solved)
-# TODO: implement
+# Step 56 - average_nll
+def average_nll(p_matrix, data):
+    total_nll = sum_negative_log_probs(p_matrix, data)
+    num_bigrams = len(data) - 1
+    return float(total_nll / num_bigrams)
 
 # Step 57 - initialize_w_random (not yet solved)
 # TODO: implement
