@@ -2335,8 +2335,40 @@ def apply_temperature(logits, temperature):
 
     return logits / temperature
 
-# Step 161 - top_k_filter (not yet solved)
-# TODO: implement
+# Step 161 - top_k_filter
+import numpy as np
+
+def top_k_filter(logits, k):
+    """Return logits with all but the top-k entries per row set to -inf."""
+    vocab_size = logits.shape[-1]
+
+    if k <= 0:
+        raise ValueError("k must be positive")
+
+    if k >= vocab_size:
+        return logits.copy()
+
+    # Indices of the k largest logits in each row.
+    top_k_indices = np.argpartition(
+        logits,
+        -k,
+        axis=-1,
+    )[:, -k:]
+
+    filtered = np.full(
+        logits.shape,
+        -np.inf,
+        dtype=np.result_type(logits.dtype, float),
+    )
+
+    np.put_along_axis(
+        filtered,
+        top_k_indices,
+        np.take_along_axis(logits, top_k_indices, axis=-1),
+        axis=-1,
+    )
+
+    return filtered
 
 # Step 162 - softmax_to_probs (not yet solved)
 # TODO: implement
