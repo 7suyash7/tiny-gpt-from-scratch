@@ -2387,8 +2387,20 @@ def sample_one_token(probs, rng):
 
     return int(token_id)
 
-# Step 164 - append_token_to_sequence (not yet solved)
-# TODO: implement
+# Step 164 - append_token_to_sequence
+import numpy as np
+
+def append_token_to_sequence(context_ids, token_id):
+    """Append token_id as a new final column to context_ids of shape (1, T)."""
+    new_token = np.array(
+        [[token_id]],
+        dtype=context_ids.dtype,
+    )
+
+    return np.concatenate(
+        [context_ids, new_token],
+        axis=1,
+    )
 
 # Step 165 - generation_loop_for_n_steps (not yet solved)
 # TODO: implement
