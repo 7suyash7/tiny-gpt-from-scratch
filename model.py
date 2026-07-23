@@ -670,8 +670,10 @@ def derive_linear_dw_on_paper():
         "shapes: X.T (D_in, N), dY (N, D_out) -> dL/dW (D_in, D_out)"
     )
 
-# Step 77 - linear_backward_dx (not yet solved)
-# TODO: implement
+# Step 77 - linear_backward_dx
+def linear_backward_dx(dy, cache):
+    w = cache["w"]
+    return matmul(dy, transpose_matrix(w))
 
 # Step 78 - linear_backward_dw (not yet solved)
 # TODO: implement
