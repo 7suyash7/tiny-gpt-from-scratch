@@ -908,8 +908,19 @@ def create_positional_embedding(block_size, d_model, scale=0.02):
 
     return scale_w_small(random_values, scale)
 
-# Step 96 - slice_positional_embedding (not yet solved)
-# TODO: implement
+# Step 96 - slice_positional_embedding
+import numpy as np
+
+def slice_positional_embedding(positional_matrix, seq_len):
+    """Return the first seq_len rows of the positional embedding matrix."""
+    d_model = positional_matrix.shape[1]
+    return slice_subblock(
+        positional_matrix,
+        0,
+        seq_len,
+        0,
+        d_model,
+    )
 
 # Step 97 - add_token_and_positional_embeddings (not yet solved)
 # TODO: implement
