@@ -1716,8 +1716,54 @@ def transformer_block_backward(d_y, cache, block_params):
 
     return d_x, grads
 
-# Step 140 - stack_transformer_blocks (not yet solved)
-# TODO: implement
+# Step 140 - stack_transformer_blocks
+import numpy as np
+
+def stack_transformer_blocks(n_layers, d_model, n_heads, d_ff):
+    """Build a list of n_layers Transformer block parameter dicts."""
+    choose_attention_head_config(d_model, n_heads)
+
+    blocks = []
+
+    for _ in range(n_layers):
+        qkv = create_multihead_qkv_projections(d_model)
+        Wo = create_multihead_output_projection(d_model)
+
+        W1 = scale_w_small(
+            make_2d_random(d_model, d_ff, seed=3),
+            0.02,
+        )
+
+        W2 = scale_w_small(
+            make_2d_random(d_ff, d_model, seed=4),
+            0.02,
+        )
+
+        blocks.append({
+            "ln1": {
+                "gamma": np.ones(d_model),
+                "beta": np.zeros(d_model),
+            },
+            "attn": {
+                "Wq": qkv["Wq"],
+                "Wk": qkv["Wk"],
+                "Wv": qkv["Wv"],
+                "Wo": Wo,
+                "bo": np.zeros(d_model),
+            },
+            "ln2": {
+                "gamma": np.ones(d_model),
+                "beta": np.zeros(d_model),
+            },
+            "ffn": {
+                "W1": W1,
+                "b1": np.zeros(d_ff),
+                "W2": W2,
+                "b2": np.zeros(d_model),
+            },
+        })
+
+    return blocks
 
 # Step 141 - forward_through_all_blocks (not yet solved)
 # TODO: implement
