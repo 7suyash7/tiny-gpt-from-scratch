@@ -1850,8 +1850,62 @@ def lm_head_linear_forward(x, w_lm, b_lm):
         },
     }
 
-# Step 145 - full_model_forward (not yet solved)
-# TODO: implement
+# Step 145 - full_model_forward
+def full_model_forward(x_ids, model_params):
+    """Run embeddings, all blocks, final LN, and LM head."""
+    seq_len = x_ids.shape[1]
+
+    # 1. Token embeddings: (B, T) -> (B, T, d_model)
+    token_emb, token_cache = token_embedding_forward(
+        x_ids,
+        model_params["tok_emb"],
+    )
+
+    # 2. Positional embeddings: (block_size, d_model) -> (T, d_model)
+    pos_emb = slice_positional_embedding(
+        model_params["pos_emb"],
+        seq_len,
+    )
+
+    # Broadcasting adds the same position vectors across the batch.
+    h = add_token_and_positional_embeddings(
+        token_emb,
+        pos_emb,
+    )
+
+    # 3. Transformer block stack
+    h, block_caches = forward_through_all_blocks(
+        h,
+        model_params["blocks"],
+    )
+
+    # 4. Final LayerNorm
+    h_norm, ln_f_cache = final_layernorm_forward(
+        h,
+        model_params["ln_f"]["gamma"],
+        model_params["ln_f"]["beta"],
+    )
+
+    # 5. Language-model head
+    lm_result = lm_head_linear_forward(
+        h_norm,
+        model_params["lm_head"]["w_lm"],
+        model_params["lm_head"]["b_lm"],
+    )
+
+    logits = lm_result["logits"]
+
+    caches = {
+        "emb": {
+            "token_cache": token_cache,
+            "seq_len": seq_len,
+        },
+        "blocks": block_caches,
+        "ln_f": ln_f_cache,
+        "lm_head": lm_result["cache"],
+    }
+
+    return logits, caches
 
 # Step 146 - full_model_backward (not yet solved)
 # TODO: implement
