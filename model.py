@@ -2305,8 +2305,12 @@ def encode_prompt(prompt, stoi):
     token_ids = encode_string(prompt, stoi)
     return np.array([token_ids], dtype=np.int64)
 
-# Step 157 - crop_context_to_block_size (not yet solved)
-# TODO: implement
+# Step 157 - crop_context_to_block_size
+def crop_context_to_block_size(context_ids, block_size):
+    if context_ids.shape[1] <= block_size:
+        return context_ids
+    
+    return context_ids[:, -block_size:]
 
 # Step 158 - forward_to_get_logits (not yet solved)
 # TODO: implement
