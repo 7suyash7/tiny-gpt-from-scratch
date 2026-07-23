@@ -1235,8 +1235,13 @@ def reshape_to_heads(x, n_heads, d_head):
     batch_size, seq_len, _ = x.shape
     return x.reshape(batch_size, seq_len, n_heads, d_head)
 
-# Step 120 - transpose_heads_to_front (not yet solved)
-# TODO: implement
+# Step 120 - transpose_heads_to_front
+import numpy as np
+
+def transpose_heads_to_front(x_heads):
+    """Transpose (B, T, n_heads, d_head) to (B, n_heads, T, d_head)."""
+    transposed = np.transpose(x_heads, (0, 2, 1, 3))
+    return np.ascontiguousarray(transposed)
 
 # Step 121 - get_multihead_n_heads (not yet solved)
 # TODO: implement
