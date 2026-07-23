@@ -2322,8 +2322,10 @@ def forward_to_get_logits(params, context_ids):
 
     return logits
 
-# Step 159 - take_last_position_logits (not yet solved)
-# TODO: implement
+# Step 159 - take_last_position_logits
+def take_last_position_logits(logits):
+    """Return logits at the final time step with shape (1, vocab_size)."""
+    return logits[:, -1, :]
 
 # Step 160 - apply_temperature (not yet solved)
 # TODO: implement
