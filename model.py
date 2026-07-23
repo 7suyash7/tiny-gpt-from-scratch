@@ -1642,8 +1642,79 @@ def transformer_block_forward(x, block_params):
         },
     }
 
-# Step 139 - transformer_block_backward (not yet solved)
-# TODO: implement
+# Step 139 - transformer_block_backward
+def transformer_block_backward(d_y, cache, block_params):
+    """Backward pass for a pre-LN Transformer block."""
+
+    # Rebuild a guaranteed-complete cache from the original block input.
+    x = cache["attn_branch"]["x"]
+    complete_cache = _complete_block_cache(x, block_params)
+
+    attn_branch = complete_cache["attn_branch"]
+    ffn_branch = complete_cache["ffn_branch"]
+
+    # ---------------------------------------------------------
+    # 1. Backprop through:
+    # y = h1 + FFN(LN2(h1))
+    # ---------------------------------------------------------
+
+    # Residual add sends d_y down both branches.
+    d_h1_skip, d_ffn_out = residual_backward(d_y)
+
+    # Backward through FFN.
+    d_ln2_out, ffn_grads = _ffn_sublayer_backward(
+        d_ffn_out,
+        ffn_branch["sublayer_cache"],
+        block_params["ffn"],
+    )
+
+    # Backward through LN2.
+    d_h1_norm, d_ln2_gamma, d_ln2_beta = layernorm_backward_affine(
+        d_ln2_out,
+        ffn_branch["ln_cache"],
+    )
+
+    # Add the residual and transformed-path gradients.
+    d_h1 = d_h1_skip + d_h1_norm
+
+    # ---------------------------------------------------------
+    # 2. Backprop through:
+    # h1 = x + Attn(LN1(x))
+    # ---------------------------------------------------------
+
+    # Residual add again sends the gradient down both paths.
+    d_x_skip, d_attn_out = residual_backward(d_h1)
+
+    # Backward through attention.
+    d_ln1_out, attn_grads = _attn_sublayer_backward(
+        d_attn_out,
+        attn_branch["sublayer_cache"],
+        block_params["attn"],
+    )
+
+    # Backward through LN1.
+    d_x_norm, d_ln1_gamma, d_ln1_beta = layernorm_backward_affine(
+        d_ln1_out,
+        attn_branch["ln_cache"],
+    )
+
+    # Final gradient with respect to the block input.
+    d_x = d_x_skip + d_x_norm
+
+    grads = {
+        "ln1": {
+            "gamma": d_ln1_gamma,
+            "beta": d_ln1_beta,
+        },
+        "ln2": {
+            "gamma": d_ln2_gamma,
+            "beta": d_ln2_beta,
+        },
+        "attn": attn_grads,
+        "ffn": ffn_grads,
+    }
+
+    return d_x, grads
 
 # Step 140 - stack_transformer_blocks (not yet solved)
 # TODO: implement
