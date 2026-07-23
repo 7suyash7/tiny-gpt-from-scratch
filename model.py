@@ -1805,8 +1805,33 @@ def backward_through_all_blocks(d_y, caches, blocks):
     
     return d_x, grads_list
 
-# Step 143 - final_layernorm_forward (not yet solved)
-# TODO: implement
+# Step 143 - final_layernorm_forward
+def final_layernorm_forward(x, gamma, beta):
+    """Apply LayerNorm independently at every token position."""
+    B, T, d_model = x.shape
+
+    # Treat every token position as an independent row.
+    x_flat = x.reshape(B * T, d_model)
+
+    ln_result = layernorm_forward_affine(
+        x_flat,
+        gamma,
+        beta,
+        eps=1e-5,
+    )
+
+    y = ln_result["y"].reshape(B, T, d_model)
+    ln_cache = ln_result["cache"]
+
+    cache = {
+        "x": x,
+        "mean": ln_cache["mean"].reshape(B, T, 1),
+        "var": ln_cache["var"].reshape(B, T, 1),
+        "x_hat": ln_cache["x_hat"].reshape(B, T, d_model),
+        "gamma": gamma,
+    }
+
+    return y, cache
 
 # Step 144 - lm_head_linear_forward (not yet solved)
 # TODO: implement
