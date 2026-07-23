@@ -984,8 +984,12 @@ def compute_attention_scores(q, k):
     k_transposed = np.swapaxes(k, -1, -2)
     return matmul(q, k_transposed)
 
-# Step 104 - scale_attention_scores (not yet solved)
-# TODO: implement
+# Step 104 - scale_attention_scores
+import numpy as np
+
+def scale_attention_scores(scores, d_head):
+    """Rescale (B, T, T) attention scores by a function of d_head."""
+    return scores / np.sqrt(d_head)
 
 # Step 105 - build_causal_mask (not yet solved)
 # TODO: implement
