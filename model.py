@@ -976,8 +976,13 @@ def compute_key(x, w_k):
 def compute_value(x, w_v):
     return matmul(x, w_v)
 
-# Step 103 - compute_attention_scores (not yet solved)
-# TODO: implement
+# Step 103 - compute_attention_scores
+import numpy as np
+
+def compute_attention_scores(q, k):
+    """Return raw attention scores Q @ K^T with shape (B, T, T)."""
+    k_transposed = np.swapaxes(k, -1, -2)
+    return matmul(q, k_transposed)
 
 # Step 104 - scale_attention_scores (not yet solved)
 # TODO: implement
