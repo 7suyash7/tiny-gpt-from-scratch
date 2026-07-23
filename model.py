@@ -1142,8 +1142,42 @@ def qk_scores_backward(d_scores, cache):
         "d_k": d_k,
     }
 
-# Step 115 - qkv_projection_backward (not yet solved)
-# TODO: implement
+# Step 115 - qkv_projection_backward
+import numpy as np
+
+def qkv_projection_backward(d_q, d_k, d_v, cache):
+    """Backprop through Q=x@Wq, K=x@Wk, V=x@Wv."""
+    x = cache["x"]
+    w_q = cache["w_q"]
+    w_k = cache["w_k"]
+    w_v = cache["w_v"]
+
+    # Gradients flowing back into the shared input x.
+    dx_q = matmul(d_q, np.swapaxes(w_q, -1, -2))
+    dx_k = matmul(d_k, np.swapaxes(w_k, -1, -2))
+    dx_v = matmul(d_v, np.swapaxes(w_v, -1, -2))
+
+    dx = dx_q + dx_k + dx_v
+
+    # Flatten batch and time so weight gradients accumulate over both.
+    d_model = x.shape[-1]
+    d_head = d_q.shape[-1]
+
+    x_flat = x.reshape(-1, d_model)
+    d_q_flat = d_q.reshape(-1, d_head)
+    d_k_flat = d_k.reshape(-1, d_head)
+    d_v_flat = d_v.reshape(-1, d_head)
+
+    dw_q = matmul(x_flat.T, d_q_flat)
+    dw_k = matmul(x_flat.T, d_k_flat)
+    dw_v = matmul(x_flat.T, d_v_flat)
+
+    return {
+        "dx": dx,
+        "dw_q": dw_q,
+        "dw_k": dw_k,
+        "dw_v": dw_v,
+    }
 
 # Step 116 - choose_attention_head_config (not yet solved)
 # TODO: implement
