@@ -2402,8 +2402,44 @@ def append_token_to_sequence(context_ids, token_id):
         axis=1,
     )
 
-# Step 165 - generation_loop_for_n_steps (not yet solved)
-# TODO: implement
+# Step 165 - generation_loop_for_n_steps
+def generation_loop_for_n_steps(
+    params,
+    prompt_ids,
+    n_new_tokens,
+    block_size,
+    temperature,
+    top_k,
+    rng,
+):
+    """Autoregressively generate n_new_tokens from prompt_ids."""
+    generated_ids = prompt_ids.copy()
+
+    for _ in range(n_new_tokens):
+        # Crop only the model input; preserve the full generated sequence.
+        context_ids = crop_context_to_block_size(
+            generated_ids,
+            block_size,
+        )
+
+        logits = forward_to_get_logits(
+            params,
+            context_ids,
+        )
+
+        last_logits = take_last_position_logits(logits)
+        scaled_logits = apply_temperature(last_logits, temperature)
+        filtered_logits = top_k_filter(scaled_logits, top_k)
+        probs = softmax_to_probs(filtered_logits)
+
+        next_token_id = sample_one_token(probs, rng)
+
+        generated_ids = append_token_to_sequence(
+            generated_ids,
+            next_token_id,
+        )
+
+    return generated_ids
 
 # Step 166 - decode_final_sequence (not yet solved)
 # TODO: implement
