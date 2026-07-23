@@ -2008,8 +2008,35 @@ def full_model_backward(d_logits, caches, model_params):
         },
     }
 
-# Step 147 - initialize_adam_moments (not yet solved)
-# TODO: implement
+# Step 147 - initialize_adam_moments
+import numpy as np
+
+def initialize_adam_moments(model_params):
+    """Allocate zeroed Adam buffers matching the nested parameter tree."""
+
+    def build_zero_tree(node):
+        if isinstance(node, np.ndarray):
+            return np.zeros_like(node)
+
+        if isinstance(node, dict):
+            return {
+                key: build_zero_tree(value)
+                for key, value in node.items()
+            }
+
+        if isinstance(node, list):
+            return [
+                build_zero_tree(value)
+                for value in node
+            ]
+
+        # Preserve non-trainable metadata such as block_size or vocab_size.
+        return node
+
+    m = build_zero_tree(model_params)
+    v = build_zero_tree(model_params)
+
+    return m, v
 
 # Step 148 - initialize_adam_step_counter (not yet solved)
 # TODO: implement
