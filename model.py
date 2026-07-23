@@ -2049,8 +2049,15 @@ def adam_increment_step(t):
     # TODO: return the next Adam step counter value
     return int(t) + 1
 
-# Step 150 - adam_update_first_moment (not yet solved)
-# TODO: implement
+# Step 150 - adam_update_first_moment
+import numpy as np
+
+def adam_update_first_moment(m, grad, beta1):
+    """Return the updated Adam first-moment estimate."""
+    old_component = elementwise_multiply(m, beta1)
+    new_component = elementwise_multiply(grad, 1.0 - beta1)
+
+    return elementwise_add(old_component, new_component)
 
 # Step 151 - adam_update_second_moment (not yet solved)
 # TODO: implement
