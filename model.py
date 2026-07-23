@@ -1907,8 +1907,106 @@ def full_model_forward(x_ids, model_params):
 
     return logits, caches
 
-# Step 146 - full_model_backward (not yet solved)
-# TODO: implement
+# Step 146 - full_model_backward
+def full_model_backward(d_logits, caches, model_params):
+    """Backprop through LM head, final LN, blocks, and embeddings."""
+
+    # ---------------------------------------------------------
+    # 1. Language-model head backward
+    # logits = ln_out @ w_lm + b_lm
+    # ---------------------------------------------------------
+    lm_cache = caches["lm_head"]
+    lm_x = lm_cache["x"]
+    w_lm = lm_cache["w_lm"]
+
+    d_model = lm_x.shape[-1]
+    vocab_size = d_logits.shape[-1]
+
+    lm_x_flat = lm_x.reshape(-1, d_model)
+    d_logits_flat = d_logits.reshape(-1, vocab_size)
+
+    linear_cache = {
+        "x": lm_x_flat,
+        "w": w_lm,
+    }
+
+    d_ln_flat = linear_backward_dx(
+        d_logits_flat,
+        linear_cache,
+    )
+    d_w_lm = linear_backward_dw(
+        d_logits_flat,
+        linear_cache,
+    )
+    d_b_lm = bias_add_backward_db(
+        d_logits_flat,
+        {"b_shape": model_params["lm_head"]["b_lm"].shape},
+    )
+
+    d_ln = d_ln_flat.reshape(lm_x.shape)
+
+    # ---------------------------------------------------------
+    # 2. Final LayerNorm backward
+    # ---------------------------------------------------------
+    ln_cache = dict(caches["ln_f"])
+    ln_cache["eps"] = 1e-5
+
+    ln_grads = layernorm_backward_full(
+        d_ln,
+        ln_cache,
+    )
+
+    d_blocks_out = ln_grads["dx"]
+
+    # ---------------------------------------------------------
+    # 3. Transformer block stack backward
+    # ---------------------------------------------------------
+    d_emb, block_grads = backward_through_all_blocks(
+        d_blocks_out,
+        caches["blocks"],
+        model_params["blocks"],
+    )
+
+    # ---------------------------------------------------------
+    # 4. Token + positional embedding backward
+    # ---------------------------------------------------------
+    emb_grads = embedding_sum_backward(d_emb)
+
+    d_token_values = emb_grads["d_token_emb"]
+    d_pos_slice = emb_grads["d_pos_emb"]
+
+    # The step specification calls this "tok_cache". The fallback supports
+    # the earlier forward implementation that stored it as "token_cache".
+    emb_cache = caches["emb"]
+    tok_cache = emb_cache.get(
+        "tok_cache",
+        emb_cache.get("token_cache"),
+    )
+
+    d_tok_emb = token_embedding_backward(
+        d_token_values,
+        tok_cache,
+    )
+
+    seq_len = emb_cache["seq_len"]
+
+    # Positional parameters may be larger than the current sequence.
+    d_pos_emb = np.zeros_like(model_params["pos_emb"])
+    d_pos_emb[:seq_len] = d_pos_slice
+
+    return {
+        "tok_emb": d_tok_emb,
+        "pos_emb": d_pos_emb,
+        "blocks": block_grads,
+        "ln_f": {
+            "gamma": ln_grads["dgamma"],
+            "beta": ln_grads["dbeta"],
+        },
+        "lm_head": {
+            "w_lm": d_w_lm,
+            "b_lm": d_b_lm,
+        },
+    }
 
 # Step 147 - initialize_adam_moments (not yet solved)
 # TODO: implement
