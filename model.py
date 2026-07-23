@@ -807,8 +807,51 @@ def layernorm_backward_divide_std(dy, cache):
     std = np.sqrt(var + eps)
     return dy / std
 
-# Step 90 - layernorm_backward_full (not yet solved)
-# TODO: implement
+# Step 90 - layernorm_backward_full
+import numpy as np
+
+def layernorm_backward_full(dy, cache):
+    """Full LayerNorm backward. Return {'dx', 'dgamma', 'dbeta'}."""
+    x = cache["x"]
+    x_hat = cache["x_hat"]
+    var = cache["var"]
+    gamma = cache["gamma"]
+    eps = cache["eps"]
+
+    # Backward through y = gamma * x_hat + beta
+    dx_hat = dy * gamma
+
+    # gamma and beta are shared across every dimension except features.
+    reduction_axes = tuple(range(dy.ndim - 1))
+    dgamma = np.sum(dy * x_hat, axis=reduction_axes)
+    dbeta = np.sum(dy, axis=reduction_axes)
+
+    # Backward through LayerNorm normalisation
+    feature_dim = x.shape[-1]
+    inv_std = 1.0 / np.sqrt(var + eps)
+
+    sum_dx_hat = np.sum(dx_hat, axis=-1, keepdims=True)
+    sum_dx_hat_x_hat = np.sum(
+        dx_hat * x_hat,
+        axis=-1,
+        keepdims=True,
+    )
+
+    dx = (
+        inv_std
+        / feature_dim
+        * (
+            feature_dim * dx_hat
+            - sum_dx_hat
+            - x_hat * sum_dx_hat_x_hat
+        )
+    )
+
+    return {
+        "dx": dx,
+        "dgamma": dgamma,
+        "dbeta": dbeta,
+    }
 
 # Step 91 - layernorm_backward_implementation (not yet solved)
 # TODO: implement
