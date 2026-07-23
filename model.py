@@ -2088,8 +2088,177 @@ def adam_parameter_update(param, m_hat, v_hat, lr, eps):
     update = lr * m_hat / (np.sqrt(v_hat) + eps)
     return param - update
 
-# Step 154 - wire_full_training_loop (not yet solved)
-# TODO: implement
+# Step 154 - wire_full_training_loop
+import numpy as np
+
+def wire_full_training_loop(
+    params,
+    train_ids,
+    val_ids,
+    block_size,
+    batch_size,
+    n_steps,
+    lr,
+    betas,
+    eps,
+):
+    """Run the full GPT training loop and return (updated_params, history)."""
+    beta1, beta2 = betas
+
+    rng = np.random.default_rng(0)
+    m_tree, v_tree = initialize_adam_moments(params)
+    t = initialize_adam_step_counter()
+
+    history = []
+
+    def adam_update_tree(param_node, grad_node, m_node, v_node, step):
+        """Recursively update matching ndarray leaves."""
+
+        if isinstance(param_node, np.ndarray):
+            new_m = adam_update_first_moment(
+                m_node,
+                grad_node,
+                beta1,
+            )
+            new_v = adam_update_second_moment(
+                v_node,
+                grad_node,
+                beta2,
+            )
+
+            m_hat, v_hat = adam_bias_correction(
+                new_m,
+                new_v,
+                beta1,
+                beta2,
+                step,
+            )
+
+            new_param = adam_parameter_update(
+                param_node,
+                m_hat,
+                v_hat,
+                lr,
+                eps,
+            )
+
+            return new_param, new_m, new_v
+
+        if isinstance(param_node, dict):
+            new_params = {}
+            new_m_tree = {}
+            new_v_tree = {}
+
+            for key, value in param_node.items():
+                # Metadata such as block_size and vocab_size has no gradient.
+                child_grad = (
+                    grad_node.get(key)
+                    if isinstance(grad_node, dict)
+                    else None
+                )
+
+                new_value, new_m, new_v = adam_update_tree(
+                    value,
+                    child_grad,
+                    m_node[key],
+                    v_node[key],
+                    step,
+                )
+
+                new_params[key] = new_value
+                new_m_tree[key] = new_m
+                new_v_tree[key] = new_v
+
+            return new_params, new_m_tree, new_v_tree
+
+        if isinstance(param_node, list):
+            new_params = []
+            new_m_tree = []
+            new_v_tree = []
+
+            for i, value in enumerate(param_node):
+                child_grad = (
+                    grad_node[i]
+                    if isinstance(grad_node, list)
+                    else None
+                )
+
+                new_value, new_m, new_v = adam_update_tree(
+                    value,
+                    child_grad,
+                    m_node[i],
+                    v_node[i],
+                    step,
+                )
+
+                new_params.append(new_value)
+                new_m_tree.append(new_m)
+                new_v_tree.append(new_v)
+
+            return new_params, new_m_tree, new_v_tree
+
+        # Preserve non-array metadata unchanged.
+        return param_node, m_node, v_node
+
+    for step in range(n_steps):
+        # 1. Sample training sequences and next-token targets.
+        x_batch, y_batch = get_batch(
+            train_ids,
+            block_size,
+            batch_size,
+            rng,
+        )
+
+        # 2. Full GPT forward pass.
+        logits, caches = full_model_forward(
+            x_batch,
+            params,
+        )
+
+        B, T, vocab_size = logits.shape
+
+        # 3. Flatten positions so existing 2D CE helpers can be reused.
+        logits_flat = logits.reshape(B * T, vocab_size)
+        targets_flat = y_batch.reshape(B * T)
+
+        probs_flat = logits_to_probs_rowwise(logits_flat)
+        loss = cross_entropy_loss(
+            probs_flat,
+            targets_flat,
+        )
+
+        # 4. Cross-entropy gradient with respect to logits.
+        d_logits_flat = softmax_cross_entropy_backward(
+            probs_flat,
+            targets_flat,
+        )
+        d_logits = d_logits_flat.reshape(logits.shape)
+
+        # 5. Backpropagate through the complete GPT.
+        grads = full_model_backward(
+            d_logits,
+            caches,
+            params,
+        )
+
+        # 6. Adam increments before bias correction.
+        t = adam_increment_step(t)
+
+        # 7. Update every ndarray in the nested parameter tree.
+        params, m_tree, v_tree = adam_update_tree(
+            params,
+            grads,
+            m_tree,
+            v_tree,
+            t,
+        )
+
+        history.append({
+            "step": step,
+            "train_loss": float(loss),
+        })
+
+    return params, history
 
 # Step 155 - logging_and_validation_loss (not yet solved)
 # TODO: implement
