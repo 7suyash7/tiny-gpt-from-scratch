@@ -736,8 +736,24 @@ def layernorm_forward_mean(x):
     feature_dim = x.shape[-1]
     return sum_keepdims(x, axis=-1) / feature_dim
 
-# Step 85 - layernorm_forward_variance (not yet solved)
-# TODO: implement
+# Step 85 - layernorm_forward_variance
+import numpy as np
+
+def layernorm_forward_variance(x, mean):
+    """Compute the per-row (biased) variance of x given its per-row mean.
+
+    Args:
+        x: ndarray of shape (B, D).
+        mean: ndarray of shape (B, 1), the per-row mean of x.
+
+    Returns:
+        var: ndarray of shape (B, 1), the per-row variance.
+    """
+    centered = x - mean
+    squared_deviations = centered ** 2
+    feature_dim = x.shape[-1]
+
+    return sum_keepdims(squared_deviations, axis=-1) / feature_dim
 
 # Step 86 - layernorm_forward_normalize (not yet solved)
 # TODO: implement
