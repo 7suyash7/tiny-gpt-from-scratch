@@ -1502,8 +1502,145 @@ def pre_layernorm_sublayer_forward(x, ln_params, sublayer_fn, sublayer_params):
         },
     }
 
-# Step 138 - transformer_block_forward (not yet solved)
-# TODO: implement
+# Step 138 - transformer_block_forward
+def transformer_block_forward(x, block_params):
+    """Run one pre-LN Transformer block forward."""
+
+    def attention_sublayer(x_norm, attn_params):
+        """Run causal multi-head self-attention."""
+
+        w_q = attn_params["Wq"]
+        w_k = attn_params["Wk"]
+        w_v = attn_params["Wv"]
+        w_o = attn_params["Wo"]
+        b_o = attn_params["bo"]
+        n_heads = attn_params["n_heads"]
+
+        B, T, d_model = x_norm.shape
+        d_head = compute_d_head(d_model, n_heads)
+
+        # Project input into Q, K and V.
+        q = compute_query(x_norm, w_q)
+        k = compute_key(x_norm, w_k)
+        v = compute_value(x_norm, w_v)
+
+        # (B, T, d_model) -> (B, n_heads, T, d_head)
+        q_heads = transpose_heads_to_front(
+            reshape_to_heads(q, n_heads, d_head)
+        )
+        k_heads = transpose_heads_to_front(
+            reshape_to_heads(k, n_heads, d_head)
+        )
+        v_heads = transpose_heads_to_front(
+            reshape_to_heads(v, n_heads, d_head)
+        )
+
+        # Scaled causal self-attention.
+        scores = compute_attention_scores(q_heads, k_heads)
+        scaled_scores = scale_attention_scores(scores, d_head)
+
+        causal_mask = build_causal_mask(T)
+        weights = multihead_masked_softmax_scores(
+            scaled_scores,
+            causal_mask,
+        )
+
+        head_out = multihead_weighted_sum(weights, v_heads)
+
+        # (B, n_heads, T, d_head) -> (B, T, d_model)
+        heads_back = transpose_heads_to_back(head_out)
+        merged = merge_heads_to_d_model(heads_back)
+
+        projection = multihead_output_projection_forward(
+            merged,
+            w_o,
+            b_o,
+        )
+
+        return {
+            "y": projection["out"],
+            "cache": {
+                "x": x_norm,
+
+                # Attention activations.
+                "q": q_heads,
+                "k": k_heads,
+                "v": v_heads,
+                "attn": weights,
+                "causal_mask": causal_mask,
+                "attn_out": head_out,
+                "merged": merged,
+
+                # Parameters needed by backward.
+                "w_q": w_q,
+                "w_k": w_k,
+                "w_v": w_v,
+                "w_o": w_o,
+
+                # Shape bookkeeping.
+                "shape_info": {
+                    "B": B,
+                    "T": T,
+                    "n_heads": n_heads,
+                    "d_head": d_head,
+                },
+            },
+        }
+
+    def ffn_sublayer(x_norm, ffn_params):
+        """Run the two-layer position-wise FFN."""
+
+        first = ffn_linear_one_forward(
+            x_norm,
+            ffn_params["w1"],
+            ffn_params["b1"],
+        )
+        h1 = first["h1"]
+
+        a1, _ = ffn_activation_forward(h1)
+
+        second = ffn_linear_two_forward(
+            a1,
+            ffn_params["w2"],
+            ffn_params["b2"],
+        )
+
+        return {
+            "y": second["h2"],
+            "cache": {
+                "x": x_norm,
+                "w1": ffn_params["w1"],
+                "h1": h1,
+                "a1": a1,
+                "w2": ffn_params["w2"],
+            },
+        }
+
+    # y1 = x + Attention(LN1(x))
+    attn_branch = pre_layernorm_sublayer_forward(
+        x,
+        block_params["ln1"],
+        attention_sublayer,
+        block_params["attn"],
+    )
+
+    y1 = attn_branch["y"]
+
+    # y2 = y1 + FFN(LN2(y1))
+    ffn_branch = pre_layernorm_sublayer_forward(
+        y1,
+        block_params["ln2"],
+        ffn_sublayer,
+        block_params["ffn"],
+    )
+
+    return {
+        "y": ffn_branch["y"],
+        "cache": {
+            "attn_branch": attn_branch["cache"],
+            "ffn_branch": ffn_branch["cache"],
+        },
+    }
 
 # Step 139 - transformer_block_backward (not yet solved)
 # TODO: implement
